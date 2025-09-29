@@ -129,3 +129,4 @@ class ServidorCorreo:
         remitente.recibir_enviado(mensaje)
         destinatario.recibir(mensaje)
         return True, "Mensaje enviado exitosamente."
+
