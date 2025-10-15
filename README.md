@@ -12,7 +12,7 @@ Cliente Correo/
   carpeta.py       → Implementa la clase Carpeta, con subcarpetas (estructura de árbol)  
   usuario.py       → Gestiona usuarios y sus carpetas  
   servidor.py      → Administra el envío y recepción de correos entre usuarios  
-  main.py          → Archivo principal que integra los módulos (no ejecutable obligatorio)  
+  main.py          → Archivo principal que integra los módulos (no ejecutable)  
 
 ## Entrega 1: Modelado de clases y encapsulamiento.
 Se definieron las clases principales:  
