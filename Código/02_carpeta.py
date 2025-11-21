@@ -16,9 +16,9 @@ class Carpeta:
     # Agrega un mensaje a la carpeta y ordena por fecha (más reciente primero)
     def agregar_mensaje(self, mensaje):
         self._mensajes.append(mensaje)
-        # Ordenar por fecha de envío 
-        self._mensajes.sort(key=lambda m: m.fecha, reverse=True)
-
+        # Ordenar por fecha de envío y en caso de empate, por remitente alfabéticamente
+        self._mensajes.sort(key=lambda m: (m.fecha, m.remitente.lower()))
+        self._mensajes.reverse()
     # Crea y agrega una subcarpeta dentro de esta carpeta
     def agregar_subcarpeta(self, subcarpeta):
         self._subcarpetas.append(subcarpeta)
