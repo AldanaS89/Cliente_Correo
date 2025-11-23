@@ -2,12 +2,58 @@
 # Autora: Aldana Benavent - Grupo 38
 # Este archivo muestra cómo se integran los módulos del proyecto y permite realizar pruebas simples del sistema.
 
+import re
 from mensaje import Mensaje
 from carpeta import Carpeta
 from usuario import Usuario
 from servidorcorreo import ServidorCorreo
 from datetime import datetime, timedelta
 
+# ---------------- MENÚ LOGIN ----------------
+def menu_login(servidor):
+    while True:
+        print("\n=== BIENVENIDO ===")
+        print("1. Registrarse")
+        print("2. Iniciar sesión")
+        print("0. Salir")
+        opcion = input("> ")
+
+        if opcion == "1":
+            # Validar nombre
+            while True:
+                nombre = input("Nombre: ").strip()
+                if re.fullmatch(r"[A-Za-záéíóúÁÉÍÓÚñÑüÜ ]+", nombre):
+                    break
+                else:
+                    print("Nombre inválido. Solo letras y acentos permitidos.")
+
+            # Validar correo
+            while True:
+                correo = input("Correo (@mail.com): ").strip()
+                if re.fullmatch(r"[A-Za-z0-9._%+-]+@mail\.com", correo):
+                    break
+                else:
+                    print("Correo inválido. Debe tener el formato usuario@mail.com")
+
+            contrasena = input("Contraseña: ").strip()
+            exito, msg = servidor.registrar_usuario(nombre, correo, contrasena)
+            print(msg)
+
+        elif opcion == "2":
+            correo = input("Correo: ").strip()
+            contrasena = input("Contraseña: ").strip()
+            usuario, msg = servidor.iniciar_sesion(correo, contrasena)
+            print(msg)
+            if usuario:
+                menu_principal(usuario, servidor)
+
+        elif opcion == "0":
+            print("Saliendo del sistema...")
+            break
+        else:
+            print("Opción inválida.")
+
+# ---------------- MENÚ PRINCIPAL ----------------
 def menu_principal(usuario, servidor):
     while True:
         print("\n=== MENÚ PRINCIPAL ===")
@@ -16,9 +62,9 @@ def menu_principal(usuario, servidor):
         print("3. Borrar carpeta vacía")
         print("4. Revisar papelera (borrar mensajes > 30 días)")
         print("5. Enviar mensaje")
-        print("0. Salir")
+        print("0. Cerrar sesión")
 
-        opcion = input("Seleccione una opción: ")
+        opcion = input("> ")
 
         if opcion == "1":
             menu_carpetas(usuario)
@@ -31,7 +77,7 @@ def menu_principal(usuario, servidor):
         elif opcion == "5":
             enviar_mensaje(usuario, servidor)
         elif opcion == "0":
-            print("Saliendo...")
+            print("Cerrando sesión...")
             break
         else:
             print("Opción inválida.")
@@ -44,11 +90,11 @@ def menu_carpetas(usuario):
         for i, carpeta in enumerate(carpetas, start=1):
             print(f"{i}. {carpeta.nombre}")
         print("0. Volver")
-        opcion = input("Seleccione carpeta: ")
+        opcion = input("> ")
 
         if opcion == "0":
             break
-        if not opcion.isdigit() or int(opcion) -1 >= len(carpetas):
+        if not opcion.isdigit() or int(opcion)-1 >= len(carpetas):
             print("Opción inválida.")
             continue
 
@@ -66,15 +112,12 @@ def menu_carpeta_individual(carpeta, usuario):
             else:
                 continue
         for i, msg in enumerate(carpeta.mensajes, start=1):
-            if carpeta.nombre.lower() == "enviados":
-                extra = f"Para: {msg.destinatario}"
-            else:
-                extra = f"De: {msg.remitente}"
-            print(f"{i}. {msg.asunto} | {extra} | Fecha: {msg.fecha}")
+            extra = f"Para: {msg.destinatario}" if carpeta.nombre.lower() == "enviados" else f"De: {msg.remitente}"
+            print(f"{i}. {msg.asunto} | {extra} | Fecha: {msg.fecha.strftime('%d/%m/%Y %H:%M:%S')}")
         print("L. Leer mensaje")
         print("M. Mover mensaje")
         print("0. Volver")
-        opcion = input("Seleccione: ").lower()
+        opcion = input("> ").lower()
         if opcion == "0":
             break
         elif opcion == "l":
@@ -94,12 +137,7 @@ def leer_mensaje(carpeta):
         print("Mensaje inexistente.")
         return
     msg = carpeta.mensajes[indice]
-    print("\n--- MENSAJE ---")
-    print(f"Asunto: {msg.asunto}")
-    print(f"De: {msg.remitente}" if carpeta.nombre.lower()!="enviados" else f"Para: {msg.destinatario}")
-    print(f"Fecha: {msg.fecha}")
-    print(f"Cuerpo:\n{msg.cuerpo}")
-    print("--------------")
+    print(msg.mostrar_detalle())
 
 def mover_mensaje(carpeta_origen, usuario):
     indice = input("Número del mensaje a mover: ")
@@ -124,7 +162,7 @@ def mover_mensaje(carpeta_origen, usuario):
     carpeta_destino.agregar_mensaje(msg)
     print("Mensaje movido.")
 
-# ----------------- CREAR/BORRAR CARPETAS -----------------
+# ---------------- CREAR/BORRAR CARPETAS ----------------
 def crear_carpeta(usuario):
     nombre = input("Nombre nueva carpeta: ").strip()
     if usuario.crear_carpeta(nombre):
@@ -146,13 +184,13 @@ def borrar_carpeta(usuario):
     usuario.borrar_carpeta(personal[int(opcion)-1].nombre)
     print("Carpeta eliminada.")
 
-# ----------------- LIMPIEZA PAPELERA -----------------
+# ---------------- LIMPIEZA PAPELERA ----------------
 def limpieza_papelera(usuario):
     papelera = usuario.papelera
     papelera.limpiar_papelera()
     print("Limpieza realizada.")
 
-# ----------------- ENVÍO DE MENSAJE -----------------
+# ---------------- ENVÍO DE MENSAJE ----------------
 def enviar_mensaje(usuario, servidor):
     destinatario = input("Correo destinatario: ").strip()
     asunto = input("Asunto: ").strip()
@@ -160,14 +198,7 @@ def enviar_mensaje(usuario, servidor):
     exito, msg = servidor.enviar_mensaje(usuario, destinatario, asunto, cuerpo)
     print(msg)
 
-# ----------------- PROGRAMA PRINCIPAL -----------------
+# ---------------- PROGRAMA PRINCIPAL ----------------
 if __name__ == "__main__":
-    # Crear servidor
     servidor = ServidorCorreo("Servidor1")
-
-    # Crear usuario demo
-    exito, msg = servidor.registrar_usuario("Aldana", "aldana@mail.com", "123")
-    usuario, msg_login = servidor.iniciar_sesion("aldana@mail.com", "123")
-
-    # Lanzar menú
-    menu_principal(usuario, servidor)
+    menu_login(servidor)
