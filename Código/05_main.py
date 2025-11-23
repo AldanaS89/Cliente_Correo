@@ -3,70 +3,171 @@
 # Este archivo muestra cómo se integran los módulos del proyecto y permite realizar pruebas simples del sistema.
 
 from mensaje import Mensaje
+from carpeta import Carpeta
 from usuario import Usuario
 from servidorcorreo import ServidorCorreo
+from datetime import datetime, timedelta
 
-def main():
+def menu_principal(usuario, servidor):
+    while True:
+        print("\n=== MENÚ PRINCIPAL ===")
+        print("1. Ver carpetas")
+        print("2. Crear carpeta personalizada")
+        print("3. Borrar carpeta vacía")
+        print("4. Revisar papelera (borrar mensajes > 30 días)")
+        print("5. Enviar mensaje")
+        print("0. Salir")
 
-    # Crear servidor y usuarios
-    servidor = ServidorCorreo("ServidorCentral")
+        opcion = input("Seleccione una opción: ")
 
-    servidor.registrar_usuario("Aldana", "aldana@mail.com", "123")
-    servidor.registrar_usuario("Juan", "juan@mail.com", "abc")
+        if opcion == "1":
+            menu_carpetas(usuario)
+        elif opcion == "2":
+            crear_carpeta(usuario)
+        elif opcion == "3":
+            borrar_carpeta(usuario)
+        elif opcion == "4":
+            limpieza_papelera(usuario)
+        elif opcion == "5":
+            enviar_mensaje(usuario, servidor)
+        elif opcion == "0":
+            print("Saliendo...")
+            break
+        else:
+            print("Opción inválida.")
 
-    usuario1, _ = servidor.iniciar_sesion("aldana@mail.com", "123")
-    usuario2, _ = servidor.iniciar_sesion("juan@mail.com", "abc")
+# ---------------- MENÚ CARPETAS ----------------
+def menu_carpetas(usuario):
+    while True:
+        print("\n=== CARPETAS ===")
+        carpetas = [usuario.recibidos, usuario.enviados, usuario.papelera] + list(usuario.carpetas_personalizadas.values())
+        for i, carpeta in enumerate(carpetas, start=1):
+            print(f"{i}. {carpeta.nombre}")
+        print("0. Volver")
+        opcion = input("Seleccione carpeta: ")
 
-    # Crear carpetas y filtros automáticos
-    usuario1.crear_carpeta("Trabajo")
-    usuario1.agregar_filtro("Proyecto", "Trabajo")
+        if opcion == "0":
+            break
+        if not opcion.isdigit() or int(opcion) -1 >= len(carpetas):
+            print("Opción inválida.")
+            continue
 
-    # Envío de mensajes con prioridad
+        carpeta = carpetas[int(opcion)-1]
+        menu_carpeta_individual(carpeta, usuario)
 
-    # Mensaje urgente
-    servidor.enviar_mensaje(
-        usuario2,
-        "aldana@mail.com",
-        "URGENTE: Proyecto final",
-        "Necesito el archivo Miércoles.",
-        prioridad=1
-    )
+def menu_carpeta_individual(carpeta, usuario):
+    while True:
+        print(f"\n=== Carpeta: {carpeta.nombre} ===")
+        if carpeta.esta_vacia():
+            print("La carpeta está vacía.")
+            print("0. Volver")
+            if input("> ") == "0":
+                break
+            else:
+                continue
+        for i, msg in enumerate(carpeta.mensajes, start=1):
+            if carpeta.nombre.lower() == "enviados":
+                extra = f"Para: {msg.destinatario}"
+            else:
+                extra = f"De: {msg.remitente}"
+            print(f"{i}. {msg.asunto} | {extra} | Fecha: {msg.fecha}")
+        print("L. Leer mensaje")
+        print("M. Mover mensaje")
+        print("0. Volver")
+        opcion = input("Seleccione: ").lower()
+        if opcion == "0":
+            break
+        elif opcion == "l":
+            leer_mensaje(carpeta)
+        elif opcion == "m":
+            mover_mensaje(carpeta, usuario)
+        else:
+            print("Opción inválida.")
 
-    # Mensaje normal
-    servidor.enviar_mensaje(
-        usuario2,
-        "aldana@mail.com",
-        "Consulta",
-        "¿Vamos a entregar mañana?",
-        prioridad=2
-    )
+def leer_mensaje(carpeta):
+    indice = input("Número del mensaje a leer: ")
+    if not indice.isdigit():
+        print("Entrada inválida.")
+        return
+    indice = int(indice)-1
+    if indice <0 or indice >= len(carpeta.mensajes):
+        print("Mensaje inexistente.")
+        return
+    msg = carpeta.mensajes[indice]
+    print("\n--- MENSAJE ---")
+    print(f"Asunto: {msg.asunto}")
+    print(f"De: {msg.remitente}" if carpeta.nombre.lower()!="enviados" else f"Para: {msg.destinatario}")
+    print(f"Fecha: {msg.fecha}")
+    print(f"Cuerpo:\n{msg.cuerpo}")
+    print("--------------")
 
-    # Procesar urgentes y mostrar resultados
-    print("=== Urgentes en cola ANTES de procesar ===")
-    print(usuario1.ver_urgentes_pendientes())
+def mover_mensaje(carpeta_origen, usuario):
+    indice = input("Número del mensaje a mover: ")
+    if not indice.isdigit():
+        print("Entrada inválida.")
+        return
+    indice = int(indice)-1
+    if indice <0 or indice>=len(carpeta_origen.mensajes):
+        print("Mensaje inexistente.")
+        return
+    msg = carpeta_origen.mensajes[indice]
+    print("\nMover a qué carpeta?")
+    carpetas = [usuario.recibidos, usuario.enviados, usuario.papelera] + list(usuario.carpetas_personalizadas.values())
+    for i, c in enumerate(carpetas, start=1):
+        print(f"{i}. {c.nombre}")
+    opcion = input("> ")
+    if not opcion.isdigit() or int(opcion)-1 >= len(carpetas):
+        print("Opción inválida.")
+        return
+    carpeta_destino = carpetas[int(opcion)-1]
+    carpeta_origen.eliminar_mensaje(msg)
+    carpeta_destino.agregar_mensaje(msg)
+    print("Mensaje movido.")
 
-    usuario1.procesar_urgentes()
+# ----------------- CREAR/BORRAR CARPETAS -----------------
+def crear_carpeta(usuario):
+    nombre = input("Nombre nueva carpeta: ").strip()
+    if usuario.crear_carpeta(nombre):
+        print("Carpeta creada.")
+    else:
+        print("Ya existe carpeta con ese nombre.")
 
-    print("\n=== Mensajes en Recibidos (ordenados por fecha) ===")
-    for m in usuario1.listar_inbox():
-        print(m)
+def borrar_carpeta(usuario):
+    personal = [c for c in usuario.carpetas_personalizadas.values() if c.esta_vacia()]
+    if not personal:
+        print("No hay carpetas vacías para borrar.")
+        return
+    for i,c in enumerate(personal, start=1):
+        print(f"{i}. {c.nombre}")
+    opcion = input("Seleccione: ")
+    if not opcion.isdigit() or int(opcion)-1 >= len(personal):
+        print("Opción inválida.")
+        return
+    usuario.borrar_carpeta(personal[int(opcion)-1].nombre)
+    print("Carpeta eliminada.")
 
-    # Mover y borrar mensajes
-    resultado = usuario1.buscar_mensajes(asunto="Consulta")
-    if resultado:
-        mensaje_a_borrar = resultado[0]
-        usuario1.borrar_mensaje(mensaje_a_borrar, usuario1.obtener_carpeta("Recibidos"))
+# ----------------- LIMPIEZA PAPELERA -----------------
+def limpieza_papelera(usuario):
+    papelera = usuario.papelera
+    papelera.limpiar_papelera()
+    print("Limpieza realizada.")
 
-    print("\n=== Papelera ===")
-    for m in usuario1.obtener_carpeta("Papelera").listar_mensajes():
-        print(m)
+# ----------------- ENVÍO DE MENSAJE -----------------
+def enviar_mensaje(usuario, servidor):
+    destinatario = input("Correo destinatario: ").strip()
+    asunto = input("Asunto: ").strip()
+    cuerpo = input("Cuerpo del mensaje: ").strip()
+    exito, msg = servidor.enviar_mensaje(usuario, destinatario, asunto, cuerpo)
+    print(msg)
 
-    # Mostrar red de servidores y ruta BFS
-    print("\n=== Grafo interno del servidor (para BFS) ===")
-    print(servidor.mostrar_red())
-
-    print("\nRuta BFS en este servidor (único nodo):")
-    print(servidor.ruta_BFS("ServidorCentral", "ServidorCentral"))
-
+# ----------------- PROGRAMA PRINCIPAL -----------------
 if __name__ == "__main__":
-    main()
+    # Crear servidor
+    servidor = ServidorCorreo("Servidor1")
+
+    # Crear usuario demo
+    exito, msg = servidor.registrar_usuario("Aldana", "aldana@mail.com", "123")
+    usuario, msg_login = servidor.iniciar_sesion("aldana@mail.com", "123")
+
+    # Lanzar menú
+    menu_principal(usuario, servidor)
