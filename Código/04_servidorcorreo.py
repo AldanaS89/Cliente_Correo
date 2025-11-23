@@ -5,37 +5,31 @@ from collections import deque   # Para BFS (cola FIFO)
 class ServidorCorreo:
     def __init__(self, nombre):
         self._nombre = nombre
-        self._usuarios = {}      # Guarda usuarios por correo
-        self._red = {}           # Grafo: servidor → lista de servidores vecinos
-
-        # Agregar el propio servidor como nodo en el grafo
-        self._red[self._nombre] = []
+        self._usuarios = {}      # correo -> Usuario
+        self._red = {}           # grafo: servidor -> lista de servidores vecinos
+        self._red[self._nombre] = []  # nodo propio
 
     @property
     def nombre(self):
         return self._nombre
 
-    # Conexión de Servidores (Grafo)
-    def agregar_conexion(self, otro_servidor):
-        """Conecta este servidor con otro (grafo no dirigido)."""
-        
-        # Crear nodos si no existen
+    # CONEXIÓN DE SERVIDORES
+    def agregar_conexion(self, otro_servidor): #Conecta este servidor con otro (grafo no dirigido).
         if otro_servidor.nombre not in self._red:
             self._red[otro_servidor.nombre] = []
         if self._nombre not in otro_servidor._red:
             otro_servidor._red[self._nombre] = []
 
-        # Conexión bidireccional
-        self._red[self._nombre].append(otro_servidor.nombre)
-        otro_servidor._red[otro_servidor.nombre].append(self._nombre)
+        if otro_servidor.nombre not in self._red[self._nombre]:
+            self._red[self._nombre].append(otro_servidor.nombre)
+        if self._nombre not in otro_servidor._red[otro_servidor.nombre]:
+            otro_servidor._red[otro_servidor.nombre].append(self._nombre)
 
     def mostrar_red(self):
-        """Devuelve el grafo completo."""
         return self._red
 
-    # BFS para encontrar ruta entre servidores
+    # RUTA ENTRE SERVIDORES (BFS)
     def ruta_BFS(self, inicio, destino):
-        """Devuelve el camino entre servidores usando BFS."""
         visitados = set()
         cola = deque([[inicio]])
 
@@ -48,7 +42,6 @@ class ServidorCorreo:
 
             if nodo_actual not in visitados:
                 visitados.add(nodo_actual)
-                
                 for vecino in self._red.get(nodo_actual, []):
                     nuevo = list(camino)
                     nuevo.append(vecino)
@@ -56,60 +49,48 @@ class ServidorCorreo:
 
         return None  # Sin ruta disponible
 
-    # Gestión de usuarios
+    # GESTIÓN DE USUARIOS
     def registrar_usuario(self, nombre, correo, contrasena):
         if correo in self._usuarios:
             return False, "El usuario ya existe."
-        
-        nuevo_usuario = Usuario(nombre, correo, contrasena)
-        self._usuarios[correo] = nuevo_usuario
-        
+        self._usuarios[correo] = Usuario(nombre, correo, contrasena)
         return True, "Usuario registrado exitosamente."
 
     def iniciar_sesion(self, correo, contrasena):
         if correo not in self._usuarios:
             return None, "Correo no registrado."
-        
         usuario = self._usuarios[correo]
-        
         if not usuario.verificar_contrasena(contrasena):
             return None, "Contraseña incorrecta."
-        
         return usuario, "Inicio de sesión exitoso."
 
     def listar_usuarios(self):
-        """Devuelve los correos de los usuarios registrados."""
         return list(self._usuarios.keys())
 
-    # Envío de Mensajes
-    def enviar_mensaje(self, remitente, correo_destinatario, asunto, contenido, prioridad=2):
-        """
-        Simula el envío verificando la ruta en la red de servidores.
-        Para este proyecto, trabajamos con un único servidor,
-        pero mantenemos BFS para demostrar estructura de datos.
-        """
+    def usuario_existente(self, correo):
+        return correo in self._usuarios
 
-        # Confirmar existencia del destinatario
+    # ENVÍO DE MENSAJES
+    def enviar_mensaje(self, remitente, correo_destinatario, asunto, contenido, prioridad=2):
+        # Verificar existencia del destinatario
         if correo_destinatario not in self._usuarios:
             mensaje_error = Mensaje("Sistema", remitente.correo, asunto, "El destinatario no existe.")
-            remitente.recibir(mensaje_error)
+            remitente.recibir_mensaje(mensaje_error)
             return False, "El destinatario no existe."
 
-        # Verificar ruta disponible en la red (a sí mismo en este proyecto)
-        ruta = self.ruta_BFS(self._nombre, self._nombre)
+        # Verificar que haya ruta en la red
+        ruta = self.ruta_BFS(self._nombre, self._nombre)  # simulado: mismo servidor
         if ruta is None:
             mensaje_error = Mensaje("Sistema", remitente.correo, asunto, "No hay ruta disponible entre servidores.")
-            remitente.recibir(mensaje_error)
+            remitente.recibir_mensaje(mensaje_error)
             return False, "No hay ruta disponible en la red."
 
-        # Realizar el envío
+        # Crear mensaje
         destinatario = self._usuarios[correo_destinatario]
         mensaje = Mensaje(remitente.correo, destinatario.correo, asunto, contenido, prioridad)
 
-        # Guardar en enviados
-        remitente.recibir_enviado(mensaje)
-
-        # Entregar al destinatario
-        destinatario.recibir(mensaje)
+        # Guardar en enviados y entregarlo
+        remitente.enviar_mensaje(destinatario.correo, asunto, contenido, prioridad)
+        destinatario.recibir_mensaje(mensaje)
 
         return True, "Mensaje enviado exitosamente."
