@@ -16,6 +16,7 @@ class Usuario:
         # Carpetas personalizadas
         self._carpetas_personalizadas = {}
 
+    # PROPIEDADES
     @property
     def nombre(self):
         return self._nombre
@@ -40,6 +41,10 @@ class Usuario:
     @property
     def carpetas_personalizadas(self):
         return self._carpetas_personalizadas
+
+    # MÉTODOS
+    def verificar_contrasena(self, contrasena):
+        return self._contrasena == contrasena
 
     def enviar_mensaje(self, destinatario, asunto, contenido, prioridad=2):
         mensaje = Mensaje(self._correo, destinatario, asunto, contenido, prioridad)
@@ -71,6 +76,7 @@ class Usuario:
             return True
         return False
 
+    # LIMPIEZA PAPELERA
     def _eliminar_viejos_papelera(self):
         ahora = datetime.now()
         nuevos = []
