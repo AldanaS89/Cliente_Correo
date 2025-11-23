@@ -1,5 +1,6 @@
 from carpeta import Carpeta
-import heapq  # Se usa para la cola de prioridad
+from mensaje import Mensaje
+from datetime import datetime, timedelta
 
 class Usuario:
     def __init__(self, nombre, correo, contrasena):
@@ -12,11 +13,9 @@ class Usuario:
         self._enviados = Carpeta("Enviados")
         self._papelera = Carpeta("Papelera")
 
-        # Lista de filtros automáticos y cola de prioridad para urgentes
-        self._filtros = []        # Guarda reglas en forma de diccionario
-        self._cola_urgentes = []  # Almacena mensajes urgentes (prioridad 1)
+        # Carpetas personalizadas
+        self._carpetas_personalizadas = {}
 
-    # Encapsulamiento de atributos
     @property
     def nombre(self):
         return self._nombre
@@ -25,84 +24,57 @@ class Usuario:
     def correo(self):
         return self._correo
 
-    def verificar_contrasena(self, contrasena):
-        return self._contrasena == contrasena
-    
-    # Manejo de carpetas
+    @property
+    def recibidos(self):
+        return self._recibidos
+
+    @property
+    def enviados(self):
+        return self._enviados
+
+    @property
+    def papelera(self):
+        self._eliminar_viejos_papelera()
+        return self._papelera
+
+    @property
+    def carpetas_personalizadas(self):
+        return self._carpetas_personalizadas
+
+    def enviar_mensaje(self, destinatario, asunto, contenido, prioridad=2):
+        mensaje = Mensaje(self._correo, destinatario, asunto, contenido, prioridad)
+        self._enviados.agregar_mensaje(mensaje)
+        return mensaje
+
+    def recibir_mensaje(self, mensaje):
+        self._recibidos.agregar_mensaje(mensaje)
+
     def crear_carpeta(self, nombre):
-        nueva = Carpeta(nombre)
-        self._recibidos.agregar_subcarpeta(nueva)
-        return nueva
-    
-    def obtener_carpeta(self, nombre):
-        if nombre == "Recibidos":
-            return self._recibidos
-        elif nombre == "Enviados":
-            return self._enviados
-        elif nombre == "Papelera":
-            return self._papelera
+        if nombre in self._carpetas_personalizadas:
+            return False
+        self._carpetas_personalizadas[nombre] = Carpeta(nombre)
+        return True
 
-        # Buscar recursivamente en subcarpetas
-        return self._recibidos.obtener_subcarpeta(nombre)
-    
-    def listar_carpetas(self):
-        lista = ["Recibidos", "Enviados", "Papelera"]
-        lista.extend(self._recibidos.listar_subcarpetas())
-        return lista
+    def borrar_carpeta(self, nombre):
+        if nombre not in self._carpetas_personalizadas:
+            return False
+        carpeta = self._carpetas_personalizadas[nombre]
+        if not carpeta.esta_vacia():
+            return False
+        del self._carpetas_personalizadas[nombre]
+        return True
 
-    # Agregar un filtro automático
-    def agregar_filtro(self, palabra_clave, carpeta_destino):
-        regla = {"palabra": palabra_clave, "destino": carpeta_destino}
-        self._filtros.append(regla)
-
-    def aplicar_filtros(self, mensaje):
-        for filtro in self._filtros:
-            if filtro["palabra"].lower() in mensaje.asunto.lower():
-                destino = self.obtener_carpeta(filtro["destino"])
-                # Si la carpeta no existe, la creamos
-                if destino is None:
-                    destino = self.crear_carpeta(filtro["destino"])
-                destino.agregar_mensaje(mensaje)
-                return True
+    def mover_mensaje(self, carpeta_origen, carpeta_destino, mensaje):
+        if mensaje in carpeta_origen.mensajes:
+            carpeta_origen.eliminar_mensaje(mensaje)
+            carpeta_destino.agregar_mensaje(mensaje)
+            return True
         return False
 
-    # Recepción de mensajes
-    def recibir(self, mensaje):
-        # Los urgentes van a la cola de prioridad
-        if mensaje.prioridad == 1:
-            heapq.heappush(self._cola_urgentes, (mensaje.prioridad, mensaje))
-        # Los normales intentan pasar por filtros
-        elif not self.aplicar_filtros(mensaje):
-            self._recibidos.agregar_mensaje(mensaje)
-
-    def procesar_urgentes(self):
-        #Pasa los urgentes desde la cola a Recibidos.
-        while self._cola_urgentes:
-            _, mensaje = heapq.heappop(self._cola_urgentes)
-            self._recibidos.agregar_mensaje(mensaje)
-
-    def ver_urgentes_pendientes(self):
-        return [datos[1].resumen() for datos in self._cola_urgentes]
-
-    # Envío y consultas
-    def recibir_enviado(self, mensaje):
-        self._enviados.agregar_mensaje(mensaje)
-
-    def listar_inbox(self):
-        return self._recibidos.listar_mensajes()
-
-    def listar_enviados(self):
-        return self._enviados.listar_mensajes()
-
-    def buscar_mensajes(self, asunto=None, remitente=None):
-        resultados = []
-        resultados.extend(self._recibidos.buscar_mensajes(asunto, remitente))
-        resultados.extend(self._enviados.buscar_mensajes(asunto, remitente))
-        return resultados
-
-    # Mover y borrar mensajes
-    def mover_mensaje(self, mensaje, carpeta_origen, carpeta_destino):
-        return carpeta_origen.mover_mensaje(mensaje, carpeta_destino)
-
-    def borrar_mensaje(self, mensaje, carpeta_origen):
-        carpeta_origen.mover_mensaje(mensaje, self._papelera)
+    def _eliminar_viejos_papelera(self):
+        ahora = datetime.now()
+        nuevos = []
+        for msg in self._papelera.mensajes:
+            if ahora - msg.fecha < timedelta(days=30):
+                nuevos.append(msg)
+        self._papelera._mensajes = nuevos
