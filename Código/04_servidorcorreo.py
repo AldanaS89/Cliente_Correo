@@ -1,55 +1,61 @@
 from mensaje import Mensaje
 from usuario import Usuario
-from collections import deque   # Para BFS (cola FIFO)
+from collections import deque   # para BFS
 
 class ServidorCorreo:
     def __init__(self, nombre):
         self._nombre = nombre
-        self._usuarios = {}      # correo -> Usuario
-        self._red = {}           # grafo: servidor -> lista de servidores vecinos
-        self._red[self._nombre] = []  # nodo propio
+        self._usuarios = {}        # correo -> Usuario
+        self._red = {nombre: []}   # grafo (servidor -> vecinos)
 
     @property
     def nombre(self):
         return self._nombre
 
-    # CONEXIÓN DE SERVIDORES
-    def agregar_conexion(self, otro_servidor): #Conecta este servidor con otro (grafo no dirigido).
+    #   GRAFO DE SERVIDORES
+
+    def agregar_conexion(self, otro_servidor):
+        # Conecta este servidor con otro en ambas direcciones (no dirigido).
+
         if otro_servidor.nombre not in self._red:
             self._red[otro_servidor.nombre] = []
+
         if self._nombre not in otro_servidor._red:
             otro_servidor._red[self._nombre] = []
 
         if otro_servidor.nombre not in self._red[self._nombre]:
             self._red[self._nombre].append(otro_servidor.nombre)
-        if self._nombre not in otro_servidor._red[otro_servidor.nombre]:
+
+        if self._nombre not in otro_servidor._red.get(otro_servidor.nombre, []):
             otro_servidor._red[otro_servidor.nombre].append(self._nombre)
 
     def mostrar_red(self):
         return self._red
 
-    # RUTA ENTRE SERVIDORES (BFS)
     def ruta_BFS(self, inicio, destino):
+        """Devuelve la ruta más corta entre dos servidores."""
         visitados = set()
         cola = deque([[inicio]])
 
         while cola:
             camino = cola.popleft()
-            nodo_actual = camino[-1]
+            nodo = camino[-1]
 
-            if nodo_actual == destino:
+            if nodo == destino:
                 return camino
 
-            if nodo_actual not in visitados:
-                visitados.add(nodo_actual)
-                for vecino in self._red.get(nodo_actual, []):
+            if nodo not in visitados:
+                visitados.add(nodo)
+
+                for vecino in self._red.get(nodo, []):
                     nuevo = list(camino)
                     nuevo.append(vecino)
                     cola.append(nuevo)
 
-        return None  # Sin ruta disponible
+        return None   # no hay ruta
 
-    # GESTIÓN DE USUARIOS
+    #   USUARIOS
+
     def registrar_usuario(self, nombre, correo, contrasena):
         if correo in self._usuarios:
             return False, "El usuario ya existe."
@@ -64,33 +70,50 @@ class ServidorCorreo:
             return None, "Contraseña incorrecta."
         return usuario, "Inicio de sesión exitoso."
 
-    def listar_usuarios(self):
-        return list(self._usuarios.keys())
-
     def usuario_existente(self, correo):
         return correo in self._usuarios
 
-    # ENVÍO DE MENSAJES
-    def enviar_mensaje(self, remitente, correo_destinatario, asunto, contenido, prioridad=2):
-        # Verificar existencia del destinatario
+    def listar_usuarios(self):
+        return list(self._usuarios.keys())
+
+    #   ENVÍO DE MENSAJES ENTRE USUARIOS
+
+    def enviar_mensaje(self, remitente_usuario, correo_destinatario, asunto, contenido, prioridad=2):
+
+        # 1) Verificar si existe el destinatario
         if correo_destinatario not in self._usuarios:
-            mensaje_error = Mensaje("Sistema", remitente.correo, asunto, "El destinatario no existe.")
-            remitente.recibir_mensaje(mensaje_error)
+            # Enviar mensaje de error al remitente
+            error = Mensaje(
+                "Sistema",
+                remitente_usuario.correo,
+                f"Error envío: {asunto}",
+                f"El destinatario {correo_destinatario} no existe."
+            )
+            remitente_usuario.recibir_mensaje(error)
             return False, "El destinatario no existe."
 
-        # Verificar que haya ruta en la red
-        ruta = self.ruta_BFS(self._nombre, self._nombre)  # simulado: mismo servidor
+        # 2) Verificar ruta (aunque estés usando 1 servidor)
+        ruta = self.ruta_BFS(self._nombre, self._nombre)
         if ruta is None:
-            mensaje_error = Mensaje("Sistema", remitente.correo, asunto, "No hay ruta disponible entre servidores.")
-            remitente.recibir_mensaje(mensaje_error)
-            return False, "No hay ruta disponible en la red."
+            error = Mensaje(
+                "Sistema",
+                remitente_usuario.correo,
+                f"Error envío: {asunto}",
+                "No hay ruta disponible en la red."
+            )
+            remitente_usuario.recibir_mensaje(error)
+            return False, "No hay ruta disponible."
 
-        # Crear mensaje
-        destinatario = self._usuarios[correo_destinatario]
-        mensaje = Mensaje(remitente.correo, destinatario.correo, asunto, contenido, prioridad)
+        # 3) Crear mensaje y guardarlo en ENVIADOS del remitente
+        msg = remitente_usuario.enviar_mensaje(
+            correo_destinatario,
+            asunto,
+            contenido,
+            prioridad
+        )
 
-        # Guardar en enviados y entregarlo
-        remitente.enviar_mensaje(destinatario.correo, asunto, contenido, prioridad)
-        destinatario.recibir_mensaje(mensaje)
+        # 4) Entregar mensaje al destinatario
+        destinatario_usuario = self._usuarios[correo_destinatario]
+        destinatario_usuario.recibir_mensaje(msg)
 
         return True, "Mensaje enviado exitosamente."
