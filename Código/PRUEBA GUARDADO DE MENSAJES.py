@@ -1,41 +1,49 @@
-# main.py modificado
 import pickle
 import os
 from servidorcorreo import ServidorCorreo
 from validaciones import registro_valido, login
 from menu import menu_sesion
 
+# Nombre del archivo donde se guardarán los datos
 ARCHIVO_DATOS = "datos_servidor.pkl"
 
 def guardar_datos(servidor):
-    """Guarda el objeto servidor completo en un archivo."""
-    with open(ARCHIVO_DATOS, "wb") as f:
-        pickle.dump(servidor, f)
-    print("\n[Sistema] Datos guardados exitosamente.")
+    """Guarda el estado completo del servidor en un archivo."""
+    try:
+        with open(ARCHIVO_DATOS, "wb") as f:
+            pickle.dump(servidor, f)
+        print("\n[Sistema] Datos guardados exitosamente.")
+    except Exception as e:
+        print(f"\n[Error] No se pudieron guardar los datos: {e}")
 
 def cargar_datos():
-    """Intenta cargar el servidor desde el archivo. Si no existe, crea uno nuevo."""
+    """Carga el servidor desde el archivo o crea uno nuevo con datos de prueba."""
     if os.path.exists(ARCHIVO_DATOS):
         try:
             with open(ARCHIVO_DATOS, "rb") as f:
                 servidor = pickle.load(f)
-            print("\n[Sistema] Datos cargados correctamente.")
+            print("\n[Sistema] Datos previos cargados correctamente.")
             return servidor
         except Exception as e:
-            print(f"[Sistema] Error al cargar datos: {e}. Se creará uno nuevo.")
+            print(f"[Sistema] Archivo dañado ({e}). Iniciando servidor nuevo...")
     
-    # Si no hay archivo, creamos el servidor y los usuarios de prueba iniciales
+    # Si no hay archivo o falló la carga, creamos datos desde cero
     print("\n[Sistema] Iniciando servidor nuevo...")
     servidor = ServidorCorreo("Gmail")
+    
+    # Usuarios de prueba iniciales
+    print("Creando usuarios por defecto (Admin, Aldana)...")
     servidor.registrar_usuario("Admin", "admin@mail.com", "1234")
     servidor.registrar_usuario("Aldana", "aldana@mail.com", "1234")
+    
     return servidor
 
 if __name__ == "__main__":
-    # 1. Cargar datos al inicio
+    # 1. Cargar datos al iniciar el programa
     servidor = cargar_datos()
     
     print("\n--- SIMULADOR DE CORREO ---")
+    
     while True:
         print("\n1. Iniciar Sesión")
         print("2. Registrarse")
@@ -46,17 +54,19 @@ if __name__ == "__main__":
         if accion == "1":
             usuario_actual = login(servidor)
             if usuario_actual:
+                # Entramos al menú principal de la sesión
                 menu_sesion(usuario_actual, servidor)
-                # Opcional: Guardar cada vez que alguien cierra sesión
-                guardar_datos(servidor) 
+                
+                # Al cerrar sesión, guardamos por seguridad
+                guardar_datos(servidor)
         
         elif accion == "2":
             registro_valido(servidor)
-            # Guardamos después de un registro exitoso
+            # Al registrar un usuario nuevo, guardamos inmediatamente
             guardar_datos(servidor)
         
         elif accion == "3":
-            # 2. Guardar datos al salir
+            # Guardado final al salir
             guardar_datos(servidor)
             print("Hasta luego.")
             break
