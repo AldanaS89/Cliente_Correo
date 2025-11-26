@@ -252,7 +252,8 @@ def menu_sesion(usuario, servidor):
         print("3. PAPELERA")
         print("4. ENVIAR MENSAJE")
         print("5. BUSCAR MENSAJE")
-        print("6. CERRAR SESIÓN")
+        print("6. CREAR FILTRO")
+        print("7. CERRAR SESIÓN")
         print("="*50)
 
         opcion = input("Elige una opción: ").strip()
@@ -308,6 +309,60 @@ def menu_sesion(usuario, servidor):
                     print("Opción inválida.")
 
         elif opcion == "6":
+            print("\n--- CREAR FILTRO AUTOMÁTICO ---")
+            email_filtro = input("Email del remitente a filtrar: ").strip()
+            
+            if not email_filtro:
+                print("Cancelado: Debes escribir un email.")
+                continue
+
+            print(f"\n¿Dónde guardar los mensajes de '{email_filtro}'?")
+            print(" [1] Crear una CARPETA NUEVA ahora mismo")
+            print(" [2] Elegir una carpeta EXISTENTE")
+            
+            decision = input("Opción: ").strip()
+            carpeta_elegida = None
+
+            if decision == "1":
+                nombre_nueva = input("Nombre de la nueva carpeta: ").strip()
+                if nombre_nueva:
+                    # Intentamos crearla dentro de 'Recibidos'
+                    exito, msg = usuario.recibidos.crear_subcarpeta(nombre_nueva)
+                    print(f"Sistema: {msg}")
+                    
+                    if exito:
+                        carpeta_elegida = usuario.recibidos.obtener_subcarpeta(nombre_nueva)
+                    else:
+                        # Si falló (ej: ya existía), preguntamos
+                        print("¿Deseas usar la carpeta existente con ese nombre? (s/n)")
+                        if input(": ").lower() == "s":
+                            carpeta_elegida = usuario.recibidos.obtener_subcarpeta(nombre_nueva)
+            
+            elif decision == "2":
+                destinos = usuario.obtener_arbol_destinos()
+                
+                opciones_validas = []
+                print("\nCarpetas disponibles:")
+                for i, (nombre_visual, obj_carpeta) in enumerate(destinos):
+                    if obj_carpeta.nombre not in ["Enviados", "Papelera"]:
+                        print(f"  [{len(opciones_validas)}] {nombre_visual}")
+                        opciones_validas.append(obj_carpeta)
+                
+                if opciones_validas:
+                    idx = pedir_entero("\nElige el número de carpeta: ", 0, len(opciones_validas)-1)
+                    carpeta_elegida = opciones_validas[idx]
+                else:
+                    print("No hay carpetas válidas creadas.")
+
+            if carpeta_elegida:
+                exito_filtro, txt_filtro = usuario.agregar_filtro(email_filtro, carpeta_elegida)
+                print(f"\n>> {txt_filtro}")
+            else:
+                print("\nOperación cancelada o carpeta inválida.")
+
+            input("Presiona Enter para continuar...")
+
+        elif opcion == "7":
             print("Cerrando sesión...")
             break
         else:
