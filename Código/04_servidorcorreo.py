@@ -1,22 +1,23 @@
 from mensaje import Mensaje
 from usuario import Usuario
-from collections import deque   # para BFS
+from collections import deque
+import heapq  
 
 class ServidorCorreo:
     def __init__(self, nombre):
         self._nombre = nombre
         self._usuarios = {}        # correo -> Usuario
         self._red = {nombre: []}   # grafo (servidor -> vecinos)
+        self._cola_envios = []     
 
     @property
     def nombre(self):
         return self._nombre
 
-    #   GRAFO DE SERVIDORES
+    #   GRAFO DE SERVIDORES (Rutas y Conexiones)
 
     def agregar_conexion(self, otro_servidor):
         # Conecta este servidor con otro en ambas direcciones (no dirigido).
-
         if otro_servidor.nombre not in self._red:
             self._red[otro_servidor.nombre] = []
 
@@ -54,7 +55,7 @@ class ServidorCorreo:
 
         return None   # no hay ruta
 
-    #   USUARIOS
+    #   GESTIÓN DE USUARIOS
 
     def registrar_usuario(self, nombre, correo, contrasena):
         if correo in self._usuarios:
@@ -76,23 +77,23 @@ class ServidorCorreo:
     def listar_usuarios(self):
         return list(self._usuarios.keys())
 
-    #   ENVÍO DE MENSAJES ENTRE USUARIOS
+    #   ENVÍO Y PROCESAMIENTO DE MENSAJES
 
     def enviar_mensaje(self, remitente_usuario, correo_destinatario, asunto, contenido, prioridad=2):
 
         # 1) Verificar si existe el destinatario
         if correo_destinatario not in self._usuarios:
-            # Enviar mensaje de error al remitente
             error = Mensaje(
                 "Sistema",
                 remitente_usuario.correo,
                 f"Error envío: {asunto}",
                 f"El destinatario {correo_destinatario} no existe."
             )
+            # Los errores de sistema se entregan inmediatamente al remitente
             remitente_usuario.recibir_mensaje(error)
             return False, "El destinatario no existe."
 
-        # 2) Verificar ruta (aunque estés usando 1 servidor)
+        # 2) Verificar ruta
         ruta = self.ruta_BFS(self._nombre, self._nombre)
         if ruta is None:
             error = Mensaje(
@@ -104,7 +105,7 @@ class ServidorCorreo:
             remitente_usuario.recibir_mensaje(error)
             return False, "No hay ruta disponible."
 
-        # 3) Crear mensaje y guardarlo en ENVIADOS del remitente
+        # 3) Crear mensaje y guardarlo en la carpeta ENVIADOS del remitente
         msg = remitente_usuario.enviar_mensaje(
             correo_destinatario,
             asunto,
@@ -112,8 +113,35 @@ class ServidorCorreo:
             prioridad
         )
 
-        # 4) Entregar mensaje al destinatario
-        destinatario_usuario = self._usuarios[correo_destinatario]
-        destinatario_usuario.recibir_mensaje(msg)
+        # 4) ENCOLAR
+        # Guardamos una tupla: (Prioridad, Fecha, Mensaje)
+        # heapq ordena basándose en el primer elemento de la tupla.
+        # Prioridad 1 (Urgente) saldrá antes que Prioridad 2 (Normal).
+        heapq.heappush(self._cola_envios, (msg.prioridad, msg.fecha, msg))
 
-        return True, "Mensaje enviado exitosamente."
+        return True, "Mensaje puesto en cola de espera (será enviado al procesar)."
+
+    def procesar_cola(self):
+        # Procesa los mensajes pendientes en la cola de prioridad. Los mensajes urgentes saldrán primero.
+
+        cantidad = len(self._cola_envios)
+        
+        if cantidad == 0:
+            return # No hacer nada si está vacía
+            
+        print(f"\n[Servidor] Procesando {cantidad} mensajes en cola...")
+
+        while self._cola_envios:
+            # heappop extrae SIEMPRE el elemento con el número menor (Prioridad 1)
+            # independientemente de cuándo entró.
+            prioridad, fecha, msg = heapq.heappop(self._cola_envios)
+            
+            # Verificamos nuevamente que el usuario exista (seguridad extra)
+            if msg.destinatario in self._usuarios:
+                destinatario_usuario = self._usuarios[msg.destinatario]
+                destinatario_usuario.recibir_mensaje(msg)
+                print(f" -> Entregado: '{msg.asunto}' a {msg.destinatario} (Prio: {prioridad})")
+            else:
+                print(f" -> Error: El usuario {msg.destinatario} ya no existe. Mensaje descartado.")
+
+        print("[Servidor] Cola de envíos vacía.")
