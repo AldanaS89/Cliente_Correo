@@ -21,14 +21,27 @@ def acciones_resultado_busqueda(usuario, mensaje):
 
         elif opcion == "2":
             print("\n¿A dónde moverlo?")
-            destinos = usuario.obtener_arbol_destinos() 
+            dests_raw = usuario.obtener_arbol_destinos() 
             
-            for i, (nombre_visual, obj_carpeta) in enumerate(destinos):
+            # --- Excluir 'Enviados' ---
+            destinos_validos = []
+            for nombre_visual, obj_carpeta in dests_raw:
+                if obj_carpeta.nombre != "Enviados":
+                    destinos_validos.append((nombre_visual, obj_carpeta))
+
+            if not destinos_validos:
+                print("No hay carpetas destino válidas.")
+                continue
+
+            # Mostrar solo las carpetas permitidas
+            for i, (nombre_visual, obj_carpeta) in enumerate(destinos_validos):
                 print(f"[{i}] {nombre_visual}")
 
-            idx = pedir_entero("Elige destino: ", 0, len(destinos)-1)
-            carpeta_destino = destinos[idx][1]
+            # Elegir usando el índice de la lista FILTRADA
+            idx = pedir_entero("Elige destino: ", 0, len(destinos_validos)-1)
+            carpeta_destino = destinos_validos[idx][1]
 
+            # Lógica de movimiento
             movido = False
             if usuario.recibidos.mover_mensaje(mensaje, carpeta_destino):
                 movido = True
@@ -38,10 +51,10 @@ def acciones_resultado_busqueda(usuario, mensaje):
                 movido = True
             
             if movido:
-                print("Mensaje movido.")
+                print("Mensaje movido correctamente.")
                 return 
             else:
-                print("Error: No se pudo mover (quizás ya no existe).")
+                print("Error: No se pudo mover (quizás el mensaje ya no existe).")
 
         elif opcion == "3":
             confirmar = input("¿Enviar a papelera? (s/n): ").lower()
