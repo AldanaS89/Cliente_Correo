@@ -26,7 +26,7 @@ class Usuario:
     def verificar_contrasena(self, contrasena):
         return self._contrasena == contrasena
 
-    #  --- GESTIÓN DE FILTROS ---
+    #  --- GESTIÓN DE FILTROS  ---
 
     def agregar_filtro(self, email_remitente, carpeta_destino):
         # Asocia un email a una carpeta para filtrado automático.
@@ -52,7 +52,7 @@ class Usuario:
             # Primero: Identificamos la carpeta principal del filtro (Ej: "Jefe")
             carpeta_destino = self.filtros_remitente[remitente]
 
-            # --- NUEVA LÓGICA: Urgentes DENTRO del Filtro ---
+            # --- Urgentes DENTRO del Filtro ---
             if mensaje.prioridad == 1:
                 # Verificamos si esa carpeta destino ya tiene una subcarpeta "Urgentes"
                 if "Urgentes" not in carpeta_destino.obtener_subcarpetas():
@@ -60,7 +60,6 @@ class Usuario:
                 
                 # Cambiamos el destino final para que sea esa subcarpeta
                 carpeta_destino = carpeta_destino.obtener_subcarpeta("Urgentes")
-            # -----------------------------------------------
 
             # Guardamos el mensaje (ya sea en la carpeta madre o en su subcarpeta Urgentes)
             carpeta_destino.agregar_mensaje(mensaje)
