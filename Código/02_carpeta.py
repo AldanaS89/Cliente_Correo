@@ -55,6 +55,9 @@ class Carpeta:
         return True, "Carpeta agregada."
 
     def borrar_subcarpeta(self, nombre):
+        if nombre == "Urgentes":
+            return False, "La carpeta 'Urgentes' es del sistema y no se puede borrar."
+        
         if nombre not in self._subcarpetas:
             return False, "No existe esa subcarpeta."
 
@@ -81,6 +84,9 @@ class Carpeta:
         return self._subcarpetas
 
     def mover_subcarpeta(self, nombre, carpeta_destino):
+        if nombre == "Urgentes":
+            return False, "La carpeta 'Urgentes' es del sistema: no se puede mover ni borrar."
+        
         if nombre not in self._subcarpetas:
             return False, "No existe esa subcarpeta aquí."
 
@@ -126,6 +132,10 @@ class Carpeta:
         return resultados
 
     def mover_mensaje(self, mensaje, carpeta_destino):
+        if carpeta_destino.nombre == "Enviados":
+            print("Error: No se pueden mover mensajes a la carpeta Enviados.")
+            return False
+        
         if mensaje in self._mensajes:
             self._mensajes.remove(mensaje)
             carpeta_destino.agregar_mensaje(mensaje)
